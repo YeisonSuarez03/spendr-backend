@@ -18,7 +18,7 @@ The server will start on port 3000 by default.
 ### Docker Deployment
 1. Build and start containers:
 ```bash
-docker-compose up --build
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 2. Environment variables are set in `.env` and passed to containers:
    - `PORT`: Backend port (default: 3000)
