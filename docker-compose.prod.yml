@@ -1,0 +1,42 @@
+version: '3.8'
+
+# Production configuration
+services:
+  backend:
+    build: 
+      context: .
+      target: production
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - PORT=3000
+      - DB_PATH=/app/data/spendr.db
+      - NODE_ENV=production
+      - MOVEMENTS_CLEAR_SECRET=${MOVEMENTS_CLEAR_SECRET}
+    volumes:
+      - sqlite_data:/app/data
+    restart: unless-stopped  # Automatic restart in production
+    networks:
+      - spendr-network
+    healthcheck:  # Health check for production monitoring
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/movements/summary"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db-init:
+    build:
+      context: .
+      dockerfile: Dockerfile.init
+    volumes:
+      - sqlite_data:/app/data
+    networks:
+      - spendr-network
+
+volumes:
+  sqlite_data:
+    driver: local
+
+networks:
+  spendr-network:
+    driver: bridge

@@ -1,0 +1,5 @@
+.env
+node_modules/
+spendr.db
+data/
+npm-debug.log*

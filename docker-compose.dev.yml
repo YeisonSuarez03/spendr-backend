@@ -1,0 +1,39 @@
+version: '3.8'
+
+# Development configuration
+services:
+  backend:
+    build: 
+      context: .
+      target: development
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - DB_PATH=/app/data/spendr.db
+    # Ensure container is accessible
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./src:/app/src  # Mount source code for hot reloading
+      - sqlite_data:/app/data
+    command: npm run dev  # Use nodemon in development
+    networks:
+      - spendr-network
+
+  db-init:
+    build:
+      context: .
+      dockerfile: Dockerfile.init
+    volumes:
+      - sqlite_data:/app/data
+    networks:
+      - spendr-network
+
+volumes:
+  sqlite_data:
+    driver: local
+
+networks:
+  spendr-network:
+    driver: bridge
