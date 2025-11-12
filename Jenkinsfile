@@ -32,7 +32,11 @@ pipeline {
                 echo '========== Stage: Setup =========='
                 echo "Workspace: ${WORKSPACE}"
                 echo "Current directory:"
-                sh 'pwd && ls -la'
+                bat '''
+                    cd /d %WORKSPACE%
+                    echo Current directory: %cd%
+                    dir
+                '''
             }
         }
 
@@ -40,25 +44,25 @@ pipeline {
             steps {
                 echo '========== Stage: Initialize Docker =========='
                 echo "Starting Docker containers using ${DOCKER_COMPOSE_FILE}..."
-                sh '''
-                    cd ${WORKSPACE}
-                    echo "Current directory: $(pwd)"
-                    echo "Files present:"
-                    ls -la | head -20
+                bat '''
+                    cd /d %WORKSPACE%
+                    echo Current directory: %cd%
+                    echo Files present:
+                    dir | findstr /i "docker-compose"
                     
-                    if [ ! -f "${DOCKER_COMPOSE_FILE}" ]; then
-                        echo "ERROR: ${DOCKER_COMPOSE_FILE} not found!"
-                        exit 1
-                    fi
+                    if not exist "%DOCKER_COMPOSE_FILE%" (
+                        echo ERROR: %DOCKER_COMPOSE_FILE% not found!
+                        exit /b 1
+                    )
                     
-                    echo "Building and starting containers..."
-                    docker compose -f ${DOCKER_COMPOSE_FILE} up -d --build
+                    echo Building and starting containers...
+                    docker compose -f %DOCKER_COMPOSE_FILE% up -d --build
                     
-                    echo "Waiting for services to be ready..."
-                    sleep 10
+                    echo Waiting for services to be ready...
+                    timeout /t 10 /nobreak
                     
-                    echo "Current running containers:"
-                    docker compose -f ${DOCKER_COMPOSE_FILE} ps
+                    echo Current running containers:
+                    docker compose -f %DOCKER_COMPOSE_FILE% ps
                 '''
                 echo 'Docker containers initialized successfully'
             }
@@ -68,17 +72,17 @@ pipeline {
             steps {
                 echo '========== Stage: Execute Tests =========='
                 echo 'Running Jest tests inside test-runner container...'
-                sh '''
-                    cd ${WORKSPACE}
-                    echo "Running tests..."
-                    docker compose -f ${DOCKER_COMPOSE_FILE} run --rm test-runner ${TEST_COMMAND}
+                bat '''
+                    cd /d %WORKSPACE%
+                    echo Running tests...
+                    docker compose -f %DOCKER_COMPOSE_FILE% run --rm test-runner %TEST_COMMAND%
                     
-                    if [ $? -eq 0 ]; then
-                        echo "✓ All tests passed successfully!"
-                    else
-                        echo "✗ Tests failed!"
-                        exit 1
-                    fi
+                    if %ERRORLEVEL% equ 0 (
+                        echo ✓ All tests passed successfully!
+                    ) else (
+                        echo ✗ Tests failed!
+                        exit /b 1
+                    )
                 '''
             }
         }
@@ -93,11 +97,11 @@ pipeline {
             steps {
                 echo '========== Stage: Deploy =========='
                 echo "${DEPLOY_MESSAGE}"
-                sh '''
-                    echo "Simulating deployment to production server..."
-                    echo "Deploying app..."
-                    sleep 2
-                    echo "✓ Deployment simulation complete!"
+                bat '''
+                    echo Simulating deployment to production server...
+                    echo Deploying app...
+                    timeout /t 2 /nobreak
+                    echo ✓ Deployment simulation complete!
                 '''
             }
         }
@@ -107,22 +111,25 @@ pipeline {
         always {
             echo '========== Post: Cleanup =========='
             echo 'Bringing down all Docker containers...'
-            sh '''
-                cd ${WORKSPACE} || echo "Failed to cd to workspace"
-                echo "Current directory: $(pwd)"
+            bat '''
+                cd /d %WORKSPACE% || echo Failed to cd to workspace
+                echo Current directory: %cd%
                 
-                if [ -f "${DOCKER_COMPOSE_FILE}" ]; then
-                    echo "Stopping and removing containers..."
-                    docker compose -f ${DOCKER_COMPOSE_FILE} down --remove-orphans || true
+                if exist "%DOCKER_COMPOSE_FILE%" (
+                    echo Stopping and removing containers...
+                    docker compose -f %DOCKER_COMPOSE_FILE% down --remove-orphans
+                    if %ERRORLEVEL% neq 0 (
+                        echo Warning: docker compose down had non-zero exit code, continuing...
+                    )
                     
-                    echo "Cleanup complete"
-                    docker compose -f ${DOCKER_COMPOSE_FILE} ps || echo "No containers running"
-                else
-                    echo "WARNING: ${DOCKER_COMPOSE_FILE} not found in workspace"
-                    echo "Cleaning up all spendr-related containers manually..."
-                    docker ps -a | grep spendr || echo "No spendr containers found"
-                    docker compose down --remove-orphans || true
-                fi
+                    echo Cleanup complete
+                    docker compose -f %DOCKER_COMPOSE_FILE% ps
+                ) else (
+                    echo WARNING: %DOCKER_COMPOSE_FILE% not found in workspace
+                    echo Cleaning up all spendr-related containers manually...
+                    for /f "tokens=1" %%i in ('docker ps -a --filter "name=spendr" --quiet') do docker stop %%i 2>nul
+                    docker compose down --remove-orphans || echo Cleanup complete despite errors
+                )
             '''
         }
 
