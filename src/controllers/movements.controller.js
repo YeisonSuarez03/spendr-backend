@@ -1,12 +1,9 @@
-import express from 'express';
 import { eq, desc, gte, lte } from 'drizzle-orm';
 import { db, sqliteDb } from '../db/database.js';
 import { movements } from '../db/schema.js';
 
-const router = express.Router();
-
 // Create a new movement
-router.post('/', async (req, res) => {
+export async function createMovement(req, res) {
   const { name, category, value, type } = req.body;
 
   if (!name || !category || value == null || !type) {
@@ -18,14 +15,14 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    const currentDate = new Date().getTime() // YYYY-MM-DDTHH:mm:ss
+    const currentDate = new Date().toISOString();
     const result = await db.insert(movements).values({
       name,
       category,
       value,
       type,
       date: currentDate,
-      createdAt: currentDate
+      createdAt: currentDate,
     }).returning({ id: movements.id });
 
     res.status(201).json({ id: result[0].id });
@@ -33,10 +30,10 @@ router.post('/', async (req, res) => {
     console.error('Create movement error:', error);
     res.status(500).json({ error: error.message });
   }
-});
+}
 
 // Update movement (only name and category)
-router.patch('/:id', async (req, res) => {
+export async function updateMovement(req, res) {
   const { id } = req.params;
   const { name, category } = req.body;
 
@@ -62,15 +59,15 @@ router.patch('/:id', async (req, res) => {
     console.error('Update movement error:', error);
     res.status(500).json({ error: error.message });
   }
-});
+}
 
 // Get all movements with filters
-router.get('/', async (req, res) => {
+export async function getMovements(req, res) {
   const { type, category, startDate, endDate } = req.query;
-  
+
   try {
     let query = db.select().from(movements);
-    
+
     if (type) {
       query = query.where(eq(movements.type, type));
     }
@@ -92,10 +89,10 @@ router.get('/', async (req, res) => {
     console.error('Get movements error:', error);
     res.status(500).json({ error: error.message });
   }
-});
+}
 
 // Get financial summary for dashboard
-router.get('/summary', async (req, res) => {
+export async function getSummary(req, res) {
   try {
     const row = sqliteDb.prepare(`
       SELECT 
@@ -108,32 +105,28 @@ router.get('/summary', async (req, res) => {
     res.json({
       total_income: row.total_income || 0,
       total_expenses: row.total_expenses || 0,
-      balance: row.balance || 0
+      balance: row.balance || 0,
     });
   } catch (error) {
     console.error('Summary endpoint error:', error);
     res.status(500).json({ error: error.message });
   }
-});
+}
 
 // Hidden endpoint to clear all movements (requires secret key)
-router.delete('/clear-all', async (req, res) => {
+export async function clearAll(req, res) {
   const secretKey = req.headers['secretkey'] || req.headers['secret-key'] || req.headers['secret_key'];
-  
-  // Check for secret key - this should match what you set in your environment variables
+
   if (secretKey !== process.env.MOVEMENTS_CLEAR_SECRET) {
     return res.status(403).json({ error: 'Unauthorized: Invalid secret key' });
   }
 
   try {
     sqliteDb.exec('DELETE FROM movements;');
-    // reset autoincrement counter
     sqliteDb.exec("DELETE FROM sqlite_sequence WHERE name='movements';");
     res.json({ message: 'All movements have been cleared successfully' });
   } catch (error) {
     console.error('Clear-all error:', error);
     res.status(500).json({ error: error.message });
   }
-});
-
-export default router
+}
