@@ -4,19 +4,12 @@ pipeline {
     environment {
         // Docker and Git configuration
         DOCKER_COMPOSE_FILE = 'docker-compose.test.yml'
-        GIT_REPO = 'https://github.com/YeisonSuarez03/spendr-backend.git'
-        BRANCH = 'master'
         
         // Test configuration
         TEST_COMMAND = 'npm test'
         
         // Deployment simulation
         DEPLOY_MESSAGE = 'Deploying app to server...'
-    }
-
-    triggers {
-        // Trigger on GitHub push to master branch
-        githubPush()
     }
 
     options {
@@ -28,19 +21,18 @@ pipeline {
         
         // Timeout after 30 minutes
         timeout(time: 30, unit: 'MINUTES')
+        
+        // Disable concurrent builds for safety
+        disableConcurrentBuilds()
     }
 
     stages {
-        stage('Checkout') {
+        stage('Setup') {
             steps {
-                echo '========== Stage: Checkout =========='
-                echo "Checking out code from ${GIT_REPO} (branch: ${BRANCH})"
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: "refs/heads/${BRANCH}"]],
-                    userRemoteConfigs: [[url: "${GIT_REPO}"]]
-                ])
-                echo 'Code checked out successfully'
+                echo '========== Stage: Setup =========='
+                echo "Workspace: ${WORKSPACE}"
+                echo "Current directory:"
+                sh 'pwd && ls -la'
             }
         }
 
@@ -49,11 +41,21 @@ pipeline {
                 echo '========== Stage: Initialize Docker =========='
                 echo "Starting Docker containers using ${DOCKER_COMPOSE_FILE}..."
                 sh '''
+                    cd ${WORKSPACE}
+                    echo "Current directory: $(pwd)"
+                    echo "Files present:"
+                    ls -la | head -20
+                    
+                    if [ ! -f "${DOCKER_COMPOSE_FILE}" ]; then
+                        echo "ERROR: ${DOCKER_COMPOSE_FILE} not found!"
+                        exit 1
+                    fi
+                    
                     echo "Building and starting containers..."
                     docker compose -f ${DOCKER_COMPOSE_FILE} up -d --build
                     
                     echo "Waiting for services to be ready..."
-                    sleep 5
+                    sleep 10
                     
                     echo "Current running containers:"
                     docker compose -f ${DOCKER_COMPOSE_FILE} ps
@@ -67,6 +69,7 @@ pipeline {
                 echo '========== Stage: Execute Tests =========='
                 echo 'Running Jest tests inside test-runner container...'
                 sh '''
+                    cd ${WORKSPACE}
                     echo "Running tests..."
                     docker compose -f ${DOCKER_COMPOSE_FILE} run --rm test-runner ${TEST_COMMAND}
                     
@@ -105,29 +108,42 @@ pipeline {
             echo '========== Post: Cleanup =========='
             echo 'Bringing down all Docker containers...'
             sh '''
-                echo "Stopping and removing containers..."
-                docker compose -f ${DOCKER_COMPOSE_FILE} down --remove-orphans || true
+                cd ${WORKSPACE} || echo "Failed to cd to workspace"
+                echo "Current directory: $(pwd)"
                 
-                echo "Cleanup complete"
-                docker compose -f ${DOCKER_COMPOSE_FILE} ps || echo "No containers running"
+                if [ -f "${DOCKER_COMPOSE_FILE}" ]; then
+                    echo "Stopping and removing containers..."
+                    docker compose -f ${DOCKER_COMPOSE_FILE} down --remove-orphans || true
+                    
+                    echo "Cleanup complete"
+                    docker compose -f ${DOCKER_COMPOSE_FILE} ps || echo "No containers running"
+                else
+                    echo "WARNING: ${DOCKER_COMPOSE_FILE} not found in workspace"
+                    echo "Cleaning up all spendr-related containers manually..."
+                    docker ps -a | grep spendr || echo "No spendr containers found"
+                    docker compose down --remove-orphans || true
+                fi
             '''
         }
 
         success {
             echo '========== Build Successful =========='
             echo '✓ Pipeline completed successfully'
-            // Optional: Add notifications (email, Slack, etc.)
         }
 
         failure {
             echo '========== Build Failed =========='
             echo '✗ Pipeline failed. Check logs above for details.'
-            // Optional: Add notifications (email, Slack, etc.)
         }
 
         unstable {
             echo '========== Build Unstable =========='
             echo '⚠ Pipeline completed with warnings.'
+        }
+
+        cleanup {
+            echo '========== Final Cleanup =========='
+            deleteDir()
         }
     }
 }
