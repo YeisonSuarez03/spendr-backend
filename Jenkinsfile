@@ -72,12 +72,19 @@ pipeline {
             steps {
                 echo '========== Stage: Execute Tests =========='
                 echo 'Running Jest tests inside app container...'
-                bat '''
-                    cd /d %WORKSPACE%
-                    echo Running tests...
-                    docker compose -f %DOCKER_COMPOSE_FILE% run --rm app %TEST_COMMAND%
-                    
-                '''
+                script {
+                    def testResult = bat(
+                        returnStatus: true,
+                        script: '''
+                            cd /d %WORKSPACE%
+                            echo Running tests...
+                            docker compose -f %DOCKER_COMPOSE_FILE% run --rm app %TEST_COMMAND%
+                        '''
+                    )
+                    if (testResult != 0) {
+                        error("Tests failed with exit code ${testResult}")
+                    }
+                }
             }
         }
 
