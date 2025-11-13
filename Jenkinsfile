@@ -71,18 +71,12 @@ pipeline {
         stage('Execute Tests') {
             steps {
                 echo '========== Stage: Execute Tests =========='
-                echo 'Running Jest tests inside test-runner container...'
+                echo 'Running Jest tests inside app container...'
                 bat '''
                     cd /d %WORKSPACE%
                     echo Running tests...
-                    docker compose -f %DOCKER_COMPOSE_FILE% run --rm test-runner %TEST_COMMAND%
+                    docker compose -f %DOCKER_COMPOSE_FILE% run --rm app %TEST_COMMAND%
                     
-                    if %ERRORLEVEL% equ 0 (
-                        echo ✓ All tests passed successfully!
-                    ) else (
-                        echo ✗ Tests failed!
-                        exit /b 1
-                    )
                 '''
             }
         }
