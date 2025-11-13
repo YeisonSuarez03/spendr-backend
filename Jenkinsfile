@@ -109,13 +109,12 @@ pipeline {
                 cd /d %WORKSPACE% || echo Failed to cd to workspace
                 echo Current directory: %cd%
                 
-                    docker compose -f %DOCKER_COMPOSE_FILE% down --remove-orphans
-                    if %ERRORLEVEL% neq 0 (
-                        echo Warning: docker compose down had non-zero exit code, continuing...
-                    )
-                    
-                    echo Cleanup complete
-                    docker compose -f %DOCKER_COMPOSE_FILE% ps
+                docker compose -f %DOCKER_COMPOSE_FILE% down --remove-orphans
+                if %ERRORLEVEL% neq 0 (
+                    echo Warning: docker compose down had non-zero exit code, continuing...
+                )
+                
+                echo Cleanup complete
             '''
         }
 
