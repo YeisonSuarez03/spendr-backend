@@ -101,7 +101,6 @@ pipeline {
                 bat '''
                     echo Simulating deployment to production server...
                     echo Deploying app...
-                    timeout /t 2 /nobreak
                     echo ✓ Deployment simulation complete!
                 '''
             }
