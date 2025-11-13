@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         // Docker and Git configuration
-        DOCKER_COMPOSE_FILE = 'docker-compose.test.yml'
+        DOCKER_COMPOSE_FILE = 'docker-compose.yml'
         
         // Test configuration
         TEST_COMMAND = 'npm test'

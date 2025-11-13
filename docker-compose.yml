@@ -1,37 +1,31 @@
 version: '3.8'
 
-# Default configuration (extends either dev or prod)
 services:
-  backend:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - PORT=3000
-      - DB_PATH=/app/data/spendr.db
-    # Ensure container is accessible
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - sqlite_data:/app/data
-    depends_on:
-      - db-init
-    networks:
-      - spendr-network
-
   db-init:
     build:
       context: .
       dockerfile: Dockerfile.init
     volumes:
       - sqlite_data:/app/data
-    networks:
-      - spendr-network
+    environment:
+      - DB_PATH=/app/data/spendr.db
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - sqlite_data:/app/data
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_PATH=/app/data/spendr.db
+      - MOVEMENTS_CLEAR_SECRET=test-secret
+      - PORT=3000
+      - TEST_TARGET=docker
+    depends_on:
+      - db-init
 
 volumes:
   sqlite_data:
-    driver: local
-
-networks:
-  spendr-network:
-    driver: bridge
+    name: sqlite_data
