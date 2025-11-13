@@ -29,7 +29,7 @@ pipeline {
     stages {
         stage('Setup') {
             steps {
-                echo '========== Stage: Setup =========='
+                echo '========== Stage: Setup ========== '
                 echo "Workspace: ${WORKSPACE}"
                 echo "Current directory:"
                 bat '''
