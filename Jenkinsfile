@@ -109,8 +109,6 @@ pipeline {
                 cd /d %WORKSPACE% || echo Failed to cd to workspace
                 echo Current directory: %cd%
                 
-                if exist "%DOCKER_COMPOSE_FILE%" (
-                    echo Stopping and removing containers...
                     docker compose -f %DOCKER_COMPOSE_FILE% down --remove-orphans
                     if %ERRORLEVEL% neq 0 (
                         echo Warning: docker compose down had non-zero exit code, continuing...
@@ -118,12 +116,6 @@ pipeline {
                     
                     echo Cleanup complete
                     docker compose -f %DOCKER_COMPOSE_FILE% ps
-                ) else (
-                    echo WARNING: %DOCKER_COMPOSE_FILE% not found in workspace
-                    echo Cleaning up all spendr-related containers manually...
-                    for /f "tokens=1" %%i in ('docker ps -a --filter "name=spendr" --quiet') do docker stop %%i 2>nul
-                    docker compose down --remove-orphans || echo Cleanup complete despite errors
-                )
             '''
         }
 
