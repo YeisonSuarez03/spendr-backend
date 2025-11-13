@@ -10,6 +10,9 @@ RUN apk add --no-cache python3 make g++ gcc sqlite-dev
 # Copy package files
 COPY package*.json ./
 
+# Install dev dependencies only first
+RUN npm install --only=development
+
 # Install all dependencies and rebuild SQLite3
 RUN npm install --build-from-source=better-sqlite3
 
@@ -44,6 +47,8 @@ RUN apk del python3 make g++ gcc sqlite-dev
 
 # Set NODE_ENV
 ENV NODE_ENV=production
+ENV PORT=3000
+ENV DB_PATH=/app/data/spendr.db
 ENV MOVEMENTS_CLEAR_SECRET=IDSOFTWARE123456
 
 # Expose port
